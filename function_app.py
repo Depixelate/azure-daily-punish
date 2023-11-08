@@ -41,6 +41,9 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
     coin_cost = min(coin_cost, max_coin_cost)
     habitica.remove_coins(coin_cost)
+    initial_punish_val = punish.get_last_count()
+    final_punish_val = initial_punish_val + punish_cost
+    logging.info("Initial Punish Val: %d, Final Punish Val: %d", initial_punish_val, final_punish_val)
     punish.update_punish_val(punish.get_last_count() + punish_cost)
     # LIAS = "togglHabiticaPunishDaily"A
 
