@@ -2,12 +2,14 @@
 An App to Run every day, and then to see which dailies occured, and based on that punish the user.
 """
 import logging
+from datetime import datetime, timedelta, timezone
+import re
 import azure.functions as func
 import toggl_punish_utils.habitica as habitica
 import toggl_punish_utils.request_utils as ru
 import toggl_punish_utils.punish as punish
 import toggl_punish_utils.toggl as toggl
-from datetime import datetime, timedelta, timezone
+
 
 app = func.FunctionApp()
 
@@ -42,7 +44,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     logging.info("Adjusted Time Period For Dailies: [%s - %s]", adjusted_last_last_cron, adjusted_last_cron)
 
     dailies = ru.run_request(habitica.get_dailies)["data"]
-
+    
     coin_cost, punish_cost = 0, 0
 
     # cur_datetime = toggl.get_now()
@@ -59,7 +61,12 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
         if "(skip)" in daily["text"].casefold():
             continue
-        
+
+        if "(temp)" in daily["text"].casefold():
+            new_text = re.sub(r"\(temp\)", "", daily["text"], re.IGNORECASE)
+            ru.run_request(habitica.set_task_text, daily["id"], new_text)
+            continue 
+
         history = daily["history"]
 
 
