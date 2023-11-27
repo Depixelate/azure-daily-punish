@@ -16,7 +16,7 @@ app = func.FunctionApp()
 
 # 8:30 AM = 0830 in UTC = 0300
 @app.schedule(
-    schedule="0 0 3 * * *", arg_name="myTimer", run_on_startup=True, use_monitor=False
+    schedule="0 0 3 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
 )
 
 def timer_trigger(myTimer: func.TimerRequest) -> None:
