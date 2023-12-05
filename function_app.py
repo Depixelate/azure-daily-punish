@@ -50,6 +50,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     # cur_datetime = toggl.get_now()
     # cur_date = cur_datetime.date()
     # logging.info("Cur datetime: %s", cur_datetime)
+    tags = []
     for daily in dailies:
 
         logging.info(
@@ -75,6 +76,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
             if rec_date <= adjusted_last_cron and rec_date >= adjusted_last_last_cron:
                 if record["isDue"] and not record["completed"]:
                     logging.info("Incomplete Daily: %s", daily["text"])
+                    tags.append(daily["text"])
                     coin_cost += COIN_COST_PER_DAILY
                     punish_cost += PUNISH_COST_PER_DAILY
             
@@ -104,7 +106,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
         initial_punish_val,
         final_punish_val,
     )
-    punish.update_punish_val(final_punish_val)
+    punish.update_punish_val(final_punish_val, tags)
     # LIAS = "togglHabiticaPunishDaily"A
 
 
