@@ -16,7 +16,7 @@ app = func.FunctionApp()
 
 # 8:30 AM = 0830 in UTC = 0300
 @app.schedule(
-    schedule="0 0 3 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
+    schedule="0 0 3 * * *", arg_name="myTimer", run_on_startup=True, use_monitor=True
 )
 
 def timer_trigger(myTimer: func.TimerRequest) -> None:
@@ -24,13 +24,12 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     The trigger which runs every day at 8:30am(ist)
     """
 
-    if ru.run_request(habitica.is_player_in_inn()):
+    if ru.run_request(habitica.is_player_in_inn):
         logging.info("Player in inn, so not running cron, toggling in inn")
         workspace_id = ru.run_request(toggl.get_default_workspace_id)
-        ru.run_request(toggl.start_timer, toggl.get_now(), "Back From Rest", workspace_id)
-        ru.run_request(habitica.toggle_player_in_inn())
+        ru.run_request(toggl.start_timer, toggl.get_now_utc(), "Back From Rest", workspace_id)
+        ru.run_request(habitica.toggle_player_in_inn)
         return
-        
 
     ru.run_request(habitica.run_cron)
 
@@ -66,9 +65,11 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
         logging.info(
             "Name: %s, History: %s, Streak: %d",
             daily["text"],
-            daily["history"],
+            "History in debug",
             daily["streak"],
         )
+
+        logging.debug("History: %s", daily["history"])
 
 
 
@@ -95,7 +96,6 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
                     tags.append(daily["text"])
                     coin_cost += cur_daily_coin_cost
                     punish_cost += cur_daily_punish_cost
-            
                 break
 
         # creation_datetime = toggl.to_local(toggl.from_toggl_format(daily["createdAt"]))
@@ -114,7 +114,6 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
     coin_cost = min(coin_cost, max_coin_cost)
     habitica.remove_coins(coin_cost)
-    #ru.run_request(habitica.sync_stats())
     initial_punish_val = punish.get_last_count()
     final_punish_val = punish.clamp_punish_val(initial_punish_val + punish_cost)
     logging.info(
