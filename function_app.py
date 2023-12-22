@@ -24,8 +24,15 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     The trigger which runs every day at 8:30am(ist)
     """
 
-    ru.run_request(habitica.run_cron)
+    if ru.run_request(habitica.is_player_in_inn()):
+        logging.info("Player in inn, so not running cron, toggling in inn")
+        workspace_id = ru.run_request(toggl.get_default_workspace_id)
+        ru.run_request(toggl.start_timer, toggl.get_now(), "Back From Rest", workspace_id)
+        ru.run_request(habitica.toggle_player_in_inn())
+        return
+        
 
+    ru.run_request(habitica.run_cron)
 
     COIN_COST_PER_DAILY = 8
     PUNISH_COST_PER_DAILY = 60
@@ -53,12 +60,17 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     tags = []
     for daily in dailies:
 
+        cur_daily_coin_cost = COIN_COST_PER_DAILY
+        cur_daily_punish_cost = PUNISH_COST_PER_DAILY
+
         logging.info(
             "Name: %s, History: %s, Streak: %d",
             daily["text"],
             daily["history"],
             daily["streak"],
         )
+
+
 
         if "(skip)" in daily["text"].casefold():
             continue
@@ -68,17 +80,21 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
             ru.run_request(habitica.set_task_text, daily["id"], new_text)
             continue 
 
-        history = daily["history"]
+        if res := re.findall(r"\(\s*count:\s*(\d+)\s*\)", daily["text"], re.IGNORECASE):
+            cur_daily_coin_cost = int(res[0])
+            cur_daily_punish_cost = int(cur_daily_coin_cost * 7.5)
 
+
+        history = daily["history"]
 
         for record in history[::-1]:
             rec_date = datetime.fromtimestamp(record["date"]/1000, timezone.utc)
-            if rec_date <= adjusted_last_cron and rec_date >= adjusted_last_last_cron:
+            if adjusted_last_last_cron <= rec_date <= adjusted_last_cron:
                 if record["isDue"] and not record["completed"]:
                     logging.info("Incomplete Daily: %s", daily["text"])
                     tags.append(daily["text"])
-                    coin_cost += COIN_COST_PER_DAILY
-                    punish_cost += PUNISH_COST_PER_DAILY
+                    coin_cost += cur_daily_coin_cost
+                    punish_cost += cur_daily_punish_cost
             
                 break
 
