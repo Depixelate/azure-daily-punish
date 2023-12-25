@@ -4,3 +4,6 @@
 
 azure-functions
 requests
+pyrogram
+tgcrypto
+tgcalls
