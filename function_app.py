@@ -2,7 +2,7 @@
 An App to Run every day, and then to see which dailies occured, and based on that punish the user.
 """
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import time, datetime, timedelta, timezone
 import re
 import azure.functions as func
 import toggl_punish_utils.habitica as habitica
@@ -14,24 +14,37 @@ import toggl_punish_utils.toggl as toggl
 app = func.FunctionApp()
 
 
-# 8:30 AM = 0830 in UTC = 0300
+# 6:30 AM = 0630 in UTC = 0100
 @app.schedule(
-    schedule="0 0 3 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
+    schedule="0 0 1 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
 )
 
 def timer_trigger(myTimer: func.TimerRequest) -> None:
     """
-    The trigger which runs every day at 8:30am(ist)
+    The trigger which runs every day at 6:30am(ist)
     """
 
-    if ru.run_request(habitica.is_player_in_inn):
-        logging.info("Player in inn, so not running cron, toggling in inn")
-        workspace_id = ru.run_request(toggl.get_default_workspace_id)
-        ru.run_request(toggl.start_timer, toggl.get_now_utc(), "Back From Rest", workspace_id)
-        ru.run_request(habitica.toggle_player_in_inn)
-        return
+    cron_history = ru.run_request(habitica.get_cron_history)
+    last_cron_utc = toggl.from_toggl_format(cron_history[-1]["date"])
+    last_cron_local = toggl.to_local(last_cron_utc)
 
+    logging.info("Last Cron Local Date Time: %s", last_cron_local)
+
+    if last_cron_local.date() == toggl.get_now().date():
+        logging.info("Cron was already run today, skipping")
+        return
+        # if time(0, 0, 0) <= last_cron_local.time() <= time(1, 0, 0): #Cron was done by toggl punish, therefore user was in inn, skip this.
+        #     logging.info("Cron was done by toggl punish, therefore user was in inn, skip this.")
+        #     return
+    
     ru.run_request(habitica.run_cron)
+
+    # if ru.run_request(habitica.is_player_in_inn):
+    #     logging.info("Player in inn, so not running cron, toggling in inn")
+    #     workspace_id = ru.run_request(toggl.get_default_workspace_id)
+    #     ru.run_request(toggl.start_timer, toggl.get_now_utc(), "Back From Rest", workspace_id)
+    #     ru.run_request(habitica.toggle_player_in_inn)
+    #     return
 
     COIN_COST_PER_DAILY = 8
     PUNISH_COST_PER_DAILY = 60
@@ -41,13 +54,13 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     max_coin_cost = ru.run_request(habitica.get_coins)
     cron_history = ru.run_request(habitica.get_cron_history)
 
-    last_cron = toggl.from_toggl_format(cron_history[-1]["date"])
-    last_last_cron = toggl.from_toggl_format(cron_history[-2]["date"])
+    last_cron_utc = toggl.from_toggl_format(cron_history[-1]["date"])
+    last_last_cron_utc = toggl.from_toggl_format(cron_history[-2]["date"])
 
-    adjusted_last_cron = last_cron + timedelta(minutes=1) # The reason we do this, is because if a daily was missed, it will be marked not done slightly after cron was run.
-    adjusted_last_last_cron = last_last_cron + timedelta(minutes=1)
+    adjusted_last_cron_utc = last_cron_utc + timedelta(minutes=1) # The reason we do this, is because if a daily was missed, it will be marked not done slightly after cron was run.
+    adjusted_last_last_cron_utc = last_last_cron_utc + timedelta(minutes=1)
 
-    logging.info("Adjusted Time Period For Dailies: [%s - %s]", adjusted_last_last_cron, adjusted_last_cron)
+    logging.info("Adjusted Time Period For Dailies: [%s - %s]", adjusted_last_last_cron_utc, adjusted_last_cron_utc)
 
     dailies = ru.run_request(habitica.get_dailies)["data"]
     
@@ -89,8 +102,8 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
         history = daily["history"]
 
         for record in history[::-1]:
-            rec_date = datetime.fromtimestamp(record["date"]/1000, timezone.utc)
-            if adjusted_last_last_cron <= rec_date <= adjusted_last_cron:
+            rec_date_utc = datetime.fromtimestamp(record["date"]/1000, timezone.utc)
+            if adjusted_last_last_cron_utc <= rec_date_utc <= adjusted_last_cron_utc:
                 if record["isDue"] and not record["completed"]:
                     logging.info("Incomplete Daily: %s", daily["text"])
                     tags.append(daily["text"])
