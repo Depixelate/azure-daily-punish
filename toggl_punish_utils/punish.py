@@ -3,8 +3,10 @@ Checks toggl track to see if person idle for too long, if so punishes them.
 """
 import logging
 import re
+from datetime import timedelta
 import toggl_punish_utils.toggl as toggl
 import toggl_punish_utils.request_utils as ru
+import toggl_punish_utils.telegram as telegram
 
 # import azure.functions as func
 
@@ -38,9 +40,12 @@ class Regex:
     Regular Expression Constants.
     """
 
-    TIME = r"^\((\d{1,2}):(\d{1,2})\)"
-    DURATION = r"^\((\d+)\)"
-    COUNT = r"\(\s*count:\s*(\d+)\s*\)$"  # the /s at the beginning and end is there, because it might not start at end.
+    TIME = r"\((s?\d{1,2}):(\d{1,2})\)"
+    DURATION = r"\((s?\d+)\)"
+    COUNT = r"\(\s*count:\s*(\d+)\s*\)"
+    # TIME = r"^\((\d{1,2}):(\d{1,2})\)"
+    # DURATION = r"^\((\d+)\)"
+    # COUNT = r"\(\s*count:\s*(\d+)\s*\)$"  # the /s at the beginning and end is there, because it might not start at end.
 
 
 regex_dict = {"time": Regex.TIME, "duration": Regex.DURATION, "count": Regex.COUNT}
@@ -81,14 +86,26 @@ def update_punish_val(new_val, tags = None):
 
 # Plumbing
 
-def gen_new_desc(desc_no_extras, punish_val, end=None):
+def gen_new_desc(desc_no_extras, punish_val = None, end=None, is_timed_task = False):
     """
     The timer description should always have the punish count displayed on it.
     This takes the desc. without the punish count, and the punish count,
     and combines them together to give the proper timer description.
+    Since the system only has minute precision, it also rounds the end datetime to the nearest minute
     """
-    end_str = toggl.to_local(end).strftime("(%I:%M)") if end else ""
-    new_desc = f"{end_str}{desc_no_extras}(count: {punish_val})"
+    punish_str = ""
+    end_str = ""
+    if punish_val is not None:
+        punish_str = f"(count: {punish_val})"
+    if end is not None:
+        local_end = toggl.to_local(end)
+        minute, second = local_end.minute, local_end.second
+        new_minute = round(minute + second/60)
+        diff = timedelta(minutes=new_minute-minute)
+        logging.info("In gen_new_desc, end, minute, second: %s, %s, %s", end, minute, second)
+        new_local_end = local_end + diff
+        end_str = new_local_end.strftime("(s%I:%M)") if is_timed_task else new_local_end.strftime("(%I:%M)")
+    new_desc = f"{end_str}{desc_no_extras}{punish_str}"
     return new_desc
 
 
@@ -134,6 +151,27 @@ def remove_extras(regexs, desc):
     """
     return strip_desc(regexs.values(), desc)
 
+def start_nothing_timer(workspace_id, start, punish_val = None, tags = None, is_timed_task = False):
+    """
+    Starts "Nothing" Timer with the given punish val, tags, etc.
+    """
+    if(tags is None):
+        tags = []
+    new_desc = gen_new_desc(
+        toggl.NOTHING_TIMER_NAME, punish_val, start + timedelta(minutes=2), is_timed_task
+    )
+    tags += last_update_tags(punish_val) # tells you the min as well, telling you extra sits
+    if not is_timed_task:
+        telegram.message('Nothing Timer started!')
+        telegram.call()
+    toggl.start_timer(start, new_desc, workspace_id, tags)
+
+def last_update_tags(punish_val):
+    """
+    Helper function to generate tags
+    """
+    cur_time = toggl.get_now()
+    return ["waste", f"LU-{cur_time.hour}:{cur_time.minute}-P-{punish_val}"]
 
 # regexs = {k.lower() : v for k, v in vars(Regex)} //doesn't work, includes extra stuff.
 

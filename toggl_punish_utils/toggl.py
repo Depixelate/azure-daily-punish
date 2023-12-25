@@ -112,19 +112,38 @@ def get_entries():
     return json
 
 
-def get_last_entry_end():
+def get_last_entry():
     """
-    Gets the list of entries from toggl api, then  get the last entry's end.
+    Get's the list of entries, then returns the last entry
     """
     entries = get_entries()
     if entries is not None and len(entries) > 0:
         for entry in entries:
             if entry["duration"] > 0:  # Invalid entries will have duration 0,
-                start = entry["stop"]  # running will have value < 0
-                start = from_toggl_format(start)
-                return start
+                return entry
+                
 
-    return get_now_utc()
+    return None
+
+def get_end_from_last_entry(last_entry):
+    """
+    takes the last entry as parameter, either return's its end as datetime, or returns None if entry None
+    """
+    return get_now_utc() if last_entry is None else from_toggl_format(last_entry["stop"])
+
+def get_last_entry_end():
+    """
+    Gets the list of entries from toggl api, then  get the last entry's end.
+    """
+    return get_end_from_last_entry(get_last_entry())
+    
+    # entries = get_entries()
+    # if entries is not None and len(entries) > 0:
+    #     for entry in entries:
+    #         if entry["duration"] > 0:  # Invalid entries will have duration 0,
+    #             start = entry["stop"]  # running will have value < 0
+    #             start = from_toggl_format(start)
+    #             return start
 
 
 def calc_duration(start: datetime):
@@ -140,13 +159,17 @@ def calc_duration(start: datetime):
 
 
 def start_timer(
-    start: datetime, desc: str, workspace_id: int, tags: list[str] = ("waste",)
+    start: datetime, desc: str, workspace_id: int, tags: list[str] = None, old_timer_tags = None
 ):
     """
     starts a running timer with the given start date and description in the
     given workspace with the given tags by calling toggl's api
     """
-    tags = list(tags)
+    if tags is None:
+        tags = ["waste"]
+    if old_timer_tags is None:
+        old_timer_tags = []
+    tags = list(tags + old_timer_tags)
     logging.info(
         "Starting New Timer: start=%s, desc=%s, workspace_id=%s, tags=%s",
         start,
@@ -177,12 +200,13 @@ def start_timer(
     return data.json()
 
 
-def update_timer(old_timer, new_desc, new_tags = None):
+def update_timer(old_timer, new_desc, extra_tags = None):
     """
     Updates the currently running timer on Toggl with a new description.
     """
-    if new_tags is None:
-        new_tags = []
+    if extra_tags is None:
+        extra_tags = []
+    tags = old_timer["tags"] + extra_tags
     logging.info(
         "Updating Timer: new_desc = %s, old_timer = %s", new_desc, log_str(old_timer)
     )
@@ -196,12 +220,11 @@ def update_timer(old_timer, new_desc, new_tags = None):
         "billable": old_timer["billable"],
         "description": new_desc,
         "duration": duration,
+        "tags": tags,
         "start": to_toggl_format(start),
         "workspace_id": workspace_id,
-        "tags": new_tags,
         "created_with": "requests",
         "project_id": old_timer["project_id"],
-
     }
     data = requests.put(
         f"https://api.track.toggl.com/api/v9/workspaces/{workspace_id}/time_entries/{timer_id}",
