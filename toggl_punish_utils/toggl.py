@@ -71,7 +71,8 @@ def get_curr_timer():
         headers={"Content-Type": "application/json"},
         timeout=request_utils.TIMEOUT,
     )
-    logging.info("Response: %s", log_str(cur_timer))
+    cur_timer.raise_for_status()
+    logging.debug("Response: %s", log_str(cur_timer))
     return cur_timer.json()
 
 
@@ -86,8 +87,9 @@ def get_default_workspace_id():
         headers={"content-type": "application/json"},
         timeout=request_utils.TIMEOUT,
     )
+    data.raise_for_status()
     workspace_id = data.json()["default_workspace_id"]
-    logging.info("Response: %s", log_str(data))
+    logging.debug("Response: %s", log_str(data))
     return workspace_id
 
 
@@ -103,24 +105,45 @@ def get_entries():
         headers={"content-type": "application/json"},
         timeout=request_utils.TIMEOUT,
     )
+    data.raise_for_status()
     json = data.json()
     logging.info("Latest entry: %s", json[0])
+    logging.debug("Response: %s", log_str(data))
     return json
 
 
-def get_last_entry_end():
+def get_last_entry():
     """
-    Gets the list of entries from toggl api, then  get the last entry's end.
+    Get's the list of entries, then returns the last entry
     """
     entries = get_entries()
     if entries is not None and len(entries) > 0:
         for entry in entries:
             if entry["duration"] > 0:  # Invalid entries will have duration 0,
-                start = entry["stop"]  # running will have value < 0
-                start = from_toggl_format(start)
-                return start
+                return entry
+                
 
-    return get_now_utc()
+    return None
+
+def get_end_from_last_entry(last_entry):
+    """
+    takes the last entry as parameter, either return's its end as datetime, or returns None if entry None
+    """
+    return get_now_utc() if last_entry is None else from_toggl_format(last_entry["stop"])
+
+def get_last_entry_end():
+    """
+    Gets the list of entries from toggl api, then  get the last entry's end.
+    """
+    return get_end_from_last_entry(get_last_entry())
+    
+    # entries = get_entries()
+    # if entries is not None and len(entries) > 0:
+    #     for entry in entries:
+    #         if entry["duration"] > 0:  # Invalid entries will have duration 0,
+    #             start = entry["stop"]  # running will have value < 0
+    #             start = from_toggl_format(start)
+    #             return start
 
 
 def calc_duration(start: datetime):
@@ -136,13 +159,18 @@ def calc_duration(start: datetime):
 
 
 def start_timer(
-    start: datetime, desc: str, workspace_id: int, tags: list[str] = ("waste",)
+    start: datetime, desc: str, workspace_id: int, tags=None, old_timer_tags = None, start_adjust = 0
 ):
     """
     starts a running timer with the given start date and description in the
     given workspace with the given tags by calling toggl's api
     """
-    tags = list(tags)
+    if tags is None:
+        tags = ["waste"]
+    if old_timer_tags is None:
+        old_timer_tags = []
+    tags = list(tags + old_timer_tags)
+    start = start - timedelta(seconds=start_adjust)
     logging.info(
         "Starting New Timer: start=%s, desc=%s, workspace_id=%s, tags=%s",
         start,
@@ -168,14 +196,36 @@ def start_timer(
         headers={"Content-Type": "application/json"},
         timeout=request_utils.TIMEOUT,
     )
-    logging.info("Response: %s", log_str(data))
+    data.raise_for_status()
+    logging.debug("Response: %s", log_str(data))
     return data.json()
 
+def stop_cur_timer(workspace_id, cur_timer_id):
+    """
+    Stops the currently running timer in Toggl Track
+    """
 
-def update_timer(old_timer, new_desc):
+    logging.info("Stopping currently running timer...")
+
+    data = requests.patch(
+        f"https://api.track.toggl.com/api/v9/workspaces/{workspace_id}/time_entries/{cur_timer_id}/stop",
+        auth=(API_TOKEN, "api_token"),
+        headers={"content-type": "application/json"},
+        timeout=request_utils.TIMEOUT,
+    )
+    data.raise_for_status()
+    json = data.json()
+    logging.debug("Response: %s", log_str(data))
+    return json
+
+
+def update_timer(old_timer, new_desc, extra_tags = None):
     """
     Updates the currently running timer on Toggl with a new description.
     """
+    if extra_tags is None:
+        extra_tags = []
+    tags = old_timer["tags"] + extra_tags
     logging.info(
         "Updating Timer: new_desc = %s, old_timer = %s", new_desc, log_str(old_timer)
     )
@@ -189,6 +239,7 @@ def update_timer(old_timer, new_desc):
         "billable": old_timer["billable"],
         "description": new_desc,
         "duration": duration,
+        "tags": tags,
         "start": to_toggl_format(start),
         "workspace_id": workspace_id,
         "created_with": "requests",
@@ -201,6 +252,7 @@ def update_timer(old_timer, new_desc):
         auth=(API_TOKEN, "api_token"),
         timeout=request_utils.TIMEOUT,
     )
+    data.raise_for_status()
 
     # data = requests.patch(
     # f'https://api.track.toggl.com/api/v9/workspaces/{workspace_id}/time_entries/{timer_id}',
@@ -209,7 +261,7 @@ def update_timer(old_timer, new_desc):
     # auth = (API_TOKEN, 'api_token')
     # )
 
-    logging.info("Response: %s", log_str(data))
+    logging.debug("Response: %s", log_str(data))
     return data.json()
 
 
@@ -217,7 +269,10 @@ def to_utc(d_time: datetime):
     """
     converts an aware datetime with a given utc offset to the same datetime in UTC.
     """
-    return d_time.replace(tzinfo=timezone.utc) - d_time.utcoffset()
+    utc_offset = d_time.utcoffset()
+    if utc_offset is None:
+        raise ValueError("datetime must be aware")
+    return d_time.replace(tzinfo=timezone.utc) - utc_offset
 
 
 def to_local(d_time: datetime):
