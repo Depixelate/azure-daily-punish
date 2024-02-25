@@ -49,18 +49,40 @@ HEADERS = {
 
 # Porcelein
 
+def does_reward_exist(alias):
+    """
+    returns whether a reward with the given alias exists
+    """
+    url = get_reward_url(alias)
+    return ru.run_request(does_url_exist, url)
+
+WAS_IN_INN_ALIAS = "habiticaWasInInnDontRemove"
 
 def remove_coins(coin_cost):
     """
     helper function to remove a certain number of coins
     """
     ALIAS = "togglHabiticaPunish"
+    if does_reward_exist(ALIAS):
+        ru.run_request(delete_reward, ALIAS)
+
     ru.run_request(create_reward, ALIAS, coin_cost)
     ru.run_request(buy_reward, ALIAS)
     ru.run_request(delete_reward, ALIAS)
 
 
 # Plumbing
+
+
+
+def does_url_exist(url):
+    """
+    returns whether the given url exists by sending a head request to it and checking the status code of the response to see if it's 404 or not.
+    """
+    response = requests.head(url=url, headers=HEADERS, timeout=TIMEOUT)
+    if response.status_code == 404:
+        return False
+    return True
 
 
 def run_cron():
@@ -215,6 +237,8 @@ def buy_reward(alias):
     logging.debug("buy_reward response: %s", toggl.log_str(response))
     return response
 
+def get_reward_url(alias):
+    return "https://habitica.com/api/v3/tasks/" + alias
 
 def delete_reward(alias):
     """
@@ -225,7 +249,7 @@ def delete_reward(alias):
     #   'headers': HEADERS,
     #   "muteHttpExceptions" : true
     # };
-    url = "https://habitica.com/api/v3/tasks/" + alias
+    url = get_reward_url(alias)
     response = requests.delete(url=url, headers=HEADERS, timeout=TIMEOUT)
     response.raise_for_status()
     logging.debug("delete_reward response: %s", toggl.log_str(response))
