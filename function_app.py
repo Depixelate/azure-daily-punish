@@ -46,12 +46,18 @@ def timer_trigger(myTimer) -> None:
     
     ru.run_request(habitica.run_cron)
 
-    if ru.run_request(habitica.is_player_in_inn):
-        logging.info("Player in inn, so not running cron, toggling in inn")
-        workspace_id = ru.run_request(toggl.get_default_workspace_id)
-        ru.run_request(toggl.start_timer, toggl.get_now_utc(), "Back From Rest", workspace_id) # meant to immediately trigger an alarm.
-        ru.run_request(habitica.toggle_player_in_inn)
+    if habitica.does_reward_exist(habitica.WAS_IN_INN_ALIAS): # The reason why we do this, where we have the timer manually bring us out of the inn, and then create a dummy reward to send a signal to the daily function not to calc. punish is because having the daily function bring us out, and not do punish, solely based on the fact that the player is in the inn means that the player can't choose to leave the inn until 6:30, which I don't want.
+        logging.info("Player in inn, so not punishing, toggling in inn")
+        ru.run_request(habitica.delete_reward, habitica.WAS_IN_INN_ALIAS)
+        #ru.run_request(habitica.toggle_player_in_inn)
         return
+    # if ru.run_request(habitica.is_player_in_inn):
+    #     logging.info("Player in inn, so not punishing, toggling in inn")
+    #     ru.run_request(habitica.run_cron)
+    #     workspace_id = ru.run_request(toggl.get_default_workspace_id)
+    #     ru.run_request(toggl.start_timer, toggl.get_now_utc(), "Back From Rest", workspace_id) # meant to immediately trigger an alarm.
+    #     ru.run_request(habitica.toggle_player_in_inn)
+    #     return
 
     COIN_COST_PER_DAILY = 8
     PUNISH_COST_PER_DAILY = 60

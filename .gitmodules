@@ -1,0 +1,3 @@
+[submodule "toggl_punish_utils"]
+	path = toggl_punish_utils
+	url = https://github.com/Depixelate/toggl-punish-utils.git
