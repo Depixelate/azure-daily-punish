@@ -16,7 +16,7 @@ app = func.FunctionApp()
 
 #6:30 AM = 0630 in UTC = 0100
 @app.schedule(
-    schedule="0 0 1 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
+    schedule="0 0 1 * * *", arg_name="myTimer", run_on_startup=True, use_monitor=True
 )
 
 def timer_trigger(myTimer) -> None:
@@ -30,11 +30,12 @@ def timer_trigger(myTimer) -> None:
             new_text = re.sub(r"\(temp\)", "", daily["text"], re.IGNORECASE)
             ru.run_request(habitica.set_task_text, daily["id"], new_text)
 
+
     cron_history = ru.run_request(habitica.get_cron_history)
     last_cron_utc = toggl.from_toggl_format(cron_history[-1]["date"])
     last_cron_local = toggl.to_local(last_cron_utc)
 
-    logging.info("Last Cron Local Date Time: %s", last_cron_local)
+    print("Last Cron Local Date Time: %s", last_cron_local)
 
     # if last_cron_local.date() == toggl.get_now().date():
     #     logging.info("Cron was already run today, skipping")
@@ -149,3 +150,6 @@ def timer_trigger(myTimer) -> None:
 #         logging.info('The timer is past due!')
 
 #     logging.info('Python timer trigger function executed.')
+logging.basicConfig(filename='hi.txt', filemode='a', level=logging.INFO)
+timer_trigger(None)
+print("Hi Guys!")
