@@ -14,15 +14,21 @@ import toggl_punish_utils.toggl as toggl
 app = func.FunctionApp()
 
 
-# 6:30 AM = 0630 in UTC = 0100
+#6:30 AM = 0630 in UTC = 0100
 @app.schedule(
     schedule="0 0 1 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
 )
 
-def timer_trigger(myTimer: func.TimerRequest) -> None:
+def timer_trigger(myTimer) -> None:
     """
     The trigger which runs every day at 6:30am(ist)
     """
+    dailies = ru.run_request(habitica.get_dailies)["data"]
+
+    for daily in dailies:
+        if "(temp)" in daily["text"].casefold():
+            new_text = re.sub(r"\(temp\)", "", daily["text"], re.IGNORECASE)
+            ru.run_request(habitica.set_task_text, daily["id"], new_text)
 
     cron_history = ru.run_request(habitica.get_cron_history)
     last_cron_utc = toggl.from_toggl_format(cron_history[-1]["date"])
@@ -30,21 +36,22 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
     logging.info("Last Cron Local Date Time: %s", last_cron_local)
 
-    if last_cron_local.date() == toggl.get_now().date():
-        logging.info("Cron was already run today, skipping")
-        return
-        # if time(0, 0, 0) <= last_cron_local.time() <= time(1, 0, 0): #Cron was done by toggl punish, therefore user was in inn, skip this.
+    # if last_cron_local.date() == toggl.get_now().date():
+    #     logging.info("Cron was already run today, skipping")
+    #     return
+    
+        #if time(0, 0, 0) <= last_cron_local.time() <= time(1, 0, 0): #Cron was done by toggl punish, therefore user was in inn, skip this.
         #     logging.info("Cron was done by toggl punish, therefore user was in inn, skip this.")
         #     return
     
     ru.run_request(habitica.run_cron)
 
-    # if ru.run_request(habitica.is_player_in_inn):
-    #     logging.info("Player in inn, so not running cron, toggling in inn")
-    #     workspace_id = ru.run_request(toggl.get_default_workspace_id)
-    #     ru.run_request(toggl.start_timer, toggl.get_now_utc(), "Back From Rest", workspace_id)
-    #     ru.run_request(habitica.toggle_player_in_inn)
-    #     return
+    if ru.run_request(habitica.is_player_in_inn):
+        logging.info("Player in inn, so not running cron, toggling in inn")
+        workspace_id = ru.run_request(toggl.get_default_workspace_id)
+        ru.run_request(toggl.start_timer, toggl.get_now_utc(), "Back From Rest", workspace_id) # meant to immediately trigger an alarm.
+        ru.run_request(habitica.toggle_player_in_inn)
+        return
 
     COIN_COST_PER_DAILY = 8
     PUNISH_COST_PER_DAILY = 60
@@ -62,7 +69,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
     logging.info("Adjusted Time Period For Dailies: [%s - %s]", adjusted_last_last_cron_utc, adjusted_last_cron_utc)
 
-    dailies = ru.run_request(habitica.get_dailies)["data"]
+    
     
     coin_cost, punish_cost = 0, 0
 
@@ -85,13 +92,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
         logging.debug("History: %s", daily["history"])
 
 
-
         if "(skip)" in daily["text"].casefold():
-            continue
-
-        if "(temp)" in daily["text"].casefold():
-            new_text = re.sub(r"\(temp\)", "", daily["text"], re.IGNORECASE)
-            ru.run_request(habitica.set_task_text, daily["id"], new_text)
             continue 
 
         if res := re.findall(r"\(\s*count:\s*(\d+)\s*\)", daily["text"], re.IGNORECASE):
@@ -136,7 +137,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     )
     punish.update_punish_val(final_punish_val, tags)
     # LIAS = "togglHabiticaPunishDaily"A
-
+#timer_trigger()
 
 #  if myTimer.past_due:
 #         logging.info('The timer is past due!')
