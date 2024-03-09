@@ -116,8 +116,8 @@ def clamp_punish_val(new_val):
     if new_val < 0:
         new_val = 0
         logging.warning("punish_val was found to be negative, resetting to 0.")
-    elif new_val > 600:
-        new_val = 600
+    elif new_val > 500:
+        new_val = 500
         logging.warning("punish_val was found to be > 600, resetting to 0.")
 
     return new_val
