@@ -108,7 +108,7 @@ def gen_new_desc(desc_no_extras, punish_val = None, end=None, is_timed_task = Fa
     return new_desc
 
 
-def clamp_punish_val(new_val):
+def clamp_punish_val(old_val, new_val, omitClampIfReduced = True):
     """
     takes the new value that the program wants to assign to punish_val,
     and then adjusts it so that it lies within proper bounds.
@@ -119,6 +119,9 @@ def clamp_punish_val(new_val):
     elif new_val > 500:
         new_val = 500
         logging.warning("punish_val was found to be > 600, resetting to 0.")
+    
+    if omitClampIfReduced and new_val < old_val:
+        new_val = old_val
 
     return new_val
 
