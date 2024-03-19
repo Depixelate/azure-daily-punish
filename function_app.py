@@ -150,6 +150,3 @@ def timer_trigger(myTimer) -> None:
 #         logging.info('The timer is past due!')
 
 #     logging.info('Python timer trigger function executed.')
-logging.basicConfig(filename='hi.txt', filemode='a', level=logging.INFO)
-timer_trigger(None)
-print("Hi Guys!")
