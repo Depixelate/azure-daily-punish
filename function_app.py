@@ -18,7 +18,6 @@ app = func.FunctionApp()
 @app.schedule(
     schedule="0 0 1 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
 )
-
 def timer_trigger(myTimer) -> None:
     """
     The trigger which runs every day at 6:30am(ist)
@@ -150,6 +149,3 @@ def timer_trigger(myTimer) -> None:
 #         logging.info('The timer is past due!')
 
 #     logging.info('Python timer trigger function executed.')
-logging.basicConfig(filename='hi.txt', filemode='a', level=logging.INFO)
-timer_trigger(None)
-print("Hi Guys!")
