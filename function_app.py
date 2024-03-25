@@ -145,6 +145,9 @@ def timer_trigger(myTimer) -> None:
     # LIAS = "togglHabiticaPunishDaily"A
 #timer_trigger()
 
+if __name__ == "__main__":
+    timer_trigger(None)
+
 #  if myTimer.past_due:
 #         logging.info('The timer is past due!')
 
