@@ -15,9 +15,9 @@ app = func.FunctionApp()
 
 
 #6:30 AM = 0630 in UTC = 0100
-@app.schedule(
-    schedule="0 0 1 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
-)
+# @app.schedule(
+#     schedule="0 0 1 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=True
+# )
 def timer_trigger(myTimer) -> None:
     """
     The trigger which runs every day at 6:30am(ist)
@@ -144,6 +144,9 @@ def timer_trigger(myTimer) -> None:
     punish.update_punish_val(final_punish_val, tags)
     # LIAS = "togglHabiticaPunishDaily"A
 #timer_trigger()
+
+if __name__ == "__main__":
+    timer_trigger(None)
 
 #  if myTimer.past_due:
 #         logging.info('The timer is past due!')
