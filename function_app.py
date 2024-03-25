@@ -11,6 +11,7 @@ import toggl_punish_utils.punish as punish
 import toggl_punish_utils.toggl as toggl
 
 
+
 app = func.FunctionApp()
 
 
