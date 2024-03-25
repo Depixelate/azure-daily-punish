@@ -10,8 +10,6 @@ import toggl_punish_utils.request_utils as ru
 import toggl_punish_utils.punish as punish
 import toggl_punish_utils.toggl as toggl
 
-
-
 app = func.FunctionApp()
 
 
@@ -23,6 +21,7 @@ def timer_trigger(myTimer) -> None:
     """
     The trigger which runs every day at 6:30am(ist)
     """
+    ru.run_request(habitica.run_cron)
     dailies = ru.run_request(habitica.get_dailies)["data"]
 
     for daily in dailies:
@@ -45,7 +44,7 @@ def timer_trigger(myTimer) -> None:
         #     logging.info("Cron was done by toggl punish, therefore user was in inn, skip this.")
         #     return
     
-    ru.run_request(habitica.run_cron)
+    
 
     if habitica.does_reward_exist(habitica.WAS_IN_INN_ALIAS): # The reason why we do this, where we have the timer manually bring us out of the inn, and then create a dummy reward to send a signal to the daily function not to calc. punish is because having the daily function bring us out, and not do punish, solely based on the fact that the player is in the inn means that the player can't choose to leave the inn until 6:30, which I don't want.
         logging.info("Player in inn, so not punishing, toggling in inn")
