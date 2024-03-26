@@ -104,7 +104,7 @@ def timer_trigger(myTimer) -> None:
         if res := re.findall(r"\(\s*count:\s*(\d+)\s*\)", daily["text"], re.IGNORECASE):
             cur_daily_coin_cost = int(res[0])
             cur_daily_punish_cost = int(cur_daily_coin_cost * 7.5)
-
+        logging.info("Cur Daily coin cost: %d", cur_daily_coin_cost)
 
         history = daily["history"]
 
